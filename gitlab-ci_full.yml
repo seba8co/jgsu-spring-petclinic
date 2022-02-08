@@ -1,0 +1,77 @@
+ variables:
+     DOCKER_DRIVER: overlay2
+     DOCKER_TLS_CERTDIR: ""
+     VERSION: "latest"
+     NAME: "petclinic"
+
+
+ stages:
+     - build
+     - test
+#     - sonar
+     - release
+#     - deploy
+
+ build:
+     stage: build
+     image: maven:3.6.3-jdk-8-slim
+     script:
+     - mvn -T1C dependency:go-offline
+     - mvn -T1C spring-javaformat:help
+     - mvn -T1C spring-javaformat:apply
+     - mvn -T1C clean package
+     artifacts:
+         paths:
+             - target/*.jar
+     rules:
+     - if: $CI_COMMIT_REF_NAME
+
+ test:
+     stage: test
+     image: maven:3.6.3-jdk-8-slim
+     script:
+     - mvn -T1C dependency:go-offline
+     - mvn -T1C spring-javaformat:help
+     - mvn -T1C spring-javaformat:apply
+     - mvn -T1C test
+     artifacts:
+         paths:
+             - target/*.jar
+#
+# sonar:
+#     stage: sonar
+#     image: maven:3.6.3-jdk-11-slim
+#     variables:
+#          SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+#          GIT_DEPTH: "0"
+#     cache:
+#         key: "${CI_JOB_NAME}"
+#         paths:
+#             - .sonar/cache
+#     script:
+#         - mvn -T1C verify sonar:sonar -Dsonar.projectKey=krystek17_jgsu-spring-petclinic_AX7EGd7QhII1UJkeyh2H
+#     allow_failure: true
+#     artifacts:
+#         paths:
+#             - target/*.jar
+
+ release:
+     stage: release
+     image: docker:stable
+     services:
+     - name: docker:dind
+     script:
+     - echo $token_pass | docker login -u $token_name --password-stdin $CI_REGISTRY
+     - docker build -t $CI_REGISTRY_IMAGE:$VERSION .
+     - docker push $CI_REGISTRY_IMAGE:$VERSION
+
+# deploy:
+#     stage: deploy
+#     when: manual
+#     image: docker:stable
+#     services:
+#     - name: docker:dind
+#     script:
+#     - echo $token_pass | docker login -u $token_name --password-stdin $CI_REGISTRY
+#     - docker pull $CI_REGISTRY_IMAGE:$VERSION
+#     - docker run --name $NAME -d -p 8080:8080 $CI_REGISTRY_IMAGE:$VERSION
